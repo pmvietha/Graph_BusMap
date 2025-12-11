@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tìm Tuyến Xe Buýt TP.HCM</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 380px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #90caf9 0%, #64b5f6 100%);
+            padding: 20px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        .controls {
+            padding: 20px;
+            border-bottom: 2px solid #e3f2fd;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #1976d2;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #bbdefb;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #64b5f6;
+            box-shadow: 0 0 0 3px rgba(100, 181, 246, 0.1);
+        }
+
+        .find-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .find-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+        }
+
+        .find-btn:active {
+            transform: translateY(0);
+        }
+
+        .results {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .result-item {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 4px solid #bdbdbd;
+        }
+
+        .result-item:hover {
+            background: #eeeeee;
+            transform: translateX(5px);
+        }
+
+        .result-item.best {
+            background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+            border-left: 4px solid #66bb6a;
+        }
+
+        .result-item.active {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: scale(1.02);
+        }
+
+        .route-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .route-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: white;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #1976d2;
+        }
+
+        .route-distance {
+            font-size: 13px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .route-path {
+            font-size: 13px;
+            color: #424242;
+            line-height: 1.6;
+            margin-top: 8px;
+        }
+
+        .route-arrow {
+            color: #90caf9;
+            margin: 0 5px;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: #757575;
+        }
+
+        .no-results svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #1976d2;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #1976d2;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            border: 3px solid #e3f2fd;
+            border-top: 3px solid #42a5f5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="header">
+                <h1>🚌 Tìm Tuyến Xe Buýt</h1>
+                <p>Hệ thống gợi ý tuyến đi tối ưu - TP.HCM</p>
+            </div>
+
+            <div class="controls">
+                <div class="input-group">
+                    <label>📍 Điểm đi</label>
+                    <select id="startStation">
+                        <option value="">-- Chọn trạm xuất phát --</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>📍 Điểm đến</label>
+                    <select id="endStation">
+                        <option value="">-- Chọn trạm đích --</option>
+                    </select>
+                </div>
+
+                <button class="find-btn" onclick="findRoutes()">Tìm Tuyến Đường</button>
+            </div>
+
+            <div class="results" id="results">
+                <div class="no-results">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <p>Chọn điểm đi và điểm đến để tìm tuyến xe buýt phù hợp</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="legend">
+                <div class="legend-title">Chú giải</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #66bb6a;"></div>
+                    <span>Tuyến đường ngắn nhất</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #bdbdbd;"></div>
+                    <span>Tuyến đường khác</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #42a5f5; height: 8px; width: 8px; border-radius: 50%;"></div>
+                    <span>Trạm xe buýt</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ==================== DỮ LIỆU TRẠM VÀ TUYẾN ====================
+        
+        // Định nghĩa các trạm xe buýt với tọa độ thực tế ở TP.HCM
+        const stations = {
+            /*Soát trạm
+            nguyen_thi_minh_khai
+            ho_thi_ky
+            cau_ong_lanh
+            lang_cha_ca
+            nga_tu_gia
+            cau_ong_lanh
+            le_dai_hanh
+            nguyen_gian_thanh
+            ong_ta
+            pham_ngu_lao
+            ben_xe_nga_tu_ga
+            dang_kiem
+            nha_van_hoa_thanh_nien
+            nha_tho_tan_dinh
+            ky_dong
+            hai_thuong_lan_ong
+            nguyen_tri_phuong
+            nga_tu_bay_hien
+            au_co
+            ba_thang_hai
+            nga_tu_hang_xanh
+            cho_ba_chieu
+            cho_ban_co
+            nha_tho_dong_tien
+            vong_xoay_cay_go
+            tan_ky_tan_quy
+            lang_ong_ba_chieu
+            nga_tu_nguyen_chi_thanh
+            nga_tu_tran_binh_trong
+            nga_sau_cong_hoa
+            nha_sach_minh_khai
+            benh_vien_tu_du
+            vo_van_tan
+            */
+
+            //'benh_vien_tu_du' : { name: 'Bệnh viện Từ Dũ', lat: 10.768754194648267, lng: 106.68494539448045},
+
+            //Tuyến 01
+            'cong_truong_me_linh': { name: 'Công Trường Mê Linh', lat: 10.776879579202573, lng: 106.70582100745948 },
+            'ben_bach_dang' : { name: 'Bến Bạch Đằng', lat: 10.773906155718194, lng: 106.70635124975797},
+            'nha_van_hoa_quan_5' : { name: 'Nhà Văn hóa Quận 5', lat: 10.753511327552395, lng: 106.66870092048808},
+            'ben_xe_buyt_cho_lon' : { name: 'Bến xe buýt Chợ Lớn', lat: 10.751264235714205, lng: 106.65121066539217},
+            //Tuyến 03
+            'ben_xe_buyt_sai_gon' : { name: 'Bến xe buýt Sài Gòn', lat: 10.767599573441847, lng: 106.68926165878767},
+            'nam_ky_khoi_nghia' : { name: 'Nam Kỳ Khởi Nghĩa', lat: 10.770902447228833, lng: 106.70139230125547},
+            'nha_hat_thanh_pho' : { name: 'Nhà hát Thành phố', lat: 10.777870171239975, lng: 106.70355558059224},
+            'thanh_xuan' : { name: 'Thạnh Xuân', lat: 10.893085568630704, lng: 106.67333543300238},
+            //Tuyến 04
+            'dien_bien_phu' : { name: 'Điện Biên Phủ', lat: 10.783448091904914, lng: 106.69282064573721},
+            'nha_thieu_nhi_thanh_pho' : { name: 'Nhà thiếu nhi thành phố', lat: 10.783667655957903, lng: 106.68842335758784},
+            'ben_xe_an_suong' : { name: 'Bến xe An Sương', lat: 10.843919821719012, lng: 106.61372568457547},
+            //Tuyến 06
+            'dai_hoc_nong_lam' : { name: 'Đại học Nông Lâm', lat: 10.868256792536263, lng: 106.78772914116895},
+            'cho_an_dong' : { name: 'Chợ An Đông', lat: 10.757141624179223, lng: 106.67202770188354},
+            'cho_bau_sen' : { name: 'Chợ Bầu Sen', lat: 10.759144334840826, lng: 106.67836711235006},
+            'dai_hoc_su_pham' : { name: 'Trường Đại học Sư phạm TPHCM', lat: 10.761022137524947, lng: 106.68258890798047},
+            'dai_hoc_khoa_hoc_tu_nhien' : { name: 'ĐH Khoa học tự nhiên', lat: 10.762229851757024, lng: 106.68306985893597},
+            'thao_cam_vien' : { name: 'Thảo Cầm Viên', lat: 10.789504768534197, lng: 106.70441798582532},
+            'ben_xe_cho_lon' : { name: 'Bến xe Chợ Lớn', lat: 10.753329821539399, lng: 106.65204090422156},
+            //Thêm tuyến 07
+            'nha_hat_hoa_binh' : { name: 'Nhà hát Hòa Bình', lat: 10.771958634140569, lng: 106.67441842497678},
+            'ga_sai_gon': { name: 'Ga Sài Gòn', lat: 10.782246545040719, lng: 106.67790549313041 }, 
+            'bai_hau_can_so_1' : { name: "Bãi hậu cần số 1", lat: 10.828802808701404, lng: 106.68344731112015},
+            //Tuyến 08
+            'ben_xe_buyt_quan_8' : { name: 'Bến xe buýt Quận 8', lat: 10.73363828393383, lng: 106.65658355774498},
+            'dai_hoc_bach_khoa' : { name: 'ĐH Bách khoa', lat: 10.758498624617475, lng: 106.66207732745116},
+            'cong_vien_hoang_van_thu' : { name: 'Công viên Hoàng Văn Thụ', lat: 10.80044304834966, lng: 106.66359106094566},
+            'suoi_tien' : { name: 'Suối Tiên', lat: 10.866293855156918, lng: 106.80236226763165},
+            'nha_van_hoa_sinh_vien' : { name: 'Nhà văn hóa sinh viên', lat: 10.874626365940303, lng: 106.80018077371889},
+            'dai_hoc_khoa_hoc_xa_hoi_va_nhan_van' : { name: 'ĐH Khoa học xã hội và Nhân văn', lat: 10.873543463757187, lng: 106.80228572744262},
+            'ben_xe_buyt_dhqg_moi' : { name: 'Bến xe buýt Đại học Quốc Gia TPHCM (mới)', lat: 10.874513770564846, lng: 106.80766214962068},
+            //Tuyến 13
+            'trong_dong' : { name : 'Trống Đồng', lat: 10.772432388000245, lng: 106.69150542406696},
+            'cong_truong_dan_chu' : { name : 'Công Trường Dân Chủ', lat: 10.777436191984648, lng: 106.68252997301595},
+            'cong_vien_le_thi_rieng' : { name : 'Công viên Lê Thị Riêng', lat: 10.786299144611933, lng: 106.66574753197641},
+            'ben_xe_cu_chi' : { name: 'Bến xe Củ Chi', lat: 10.971636428509182, lng: 106.4821025201218},
+            //Tuyến 14
+            'ben_xe_mien_dong' : { name: 'Bến xe Miền Đông', lat: 10.814607477902054, lng: 106.7113628258972},
+            'dai_truyen_hinh' : { name: 'Đài truyền hình', lat: 10.787302607589334, lng: 106.70200153641652},
+            'ho_con_rua' : { name : 'Hồ con rùa', lat: 10.783301126582808, lng: 106.69643971565937},
+            'bao_tang_chung_tich_chien_tranh' : { name: 'Bảo tàng Chứng tích Chiến tranh', lat: 10.779004783014367, lng: 106.69252677286103},
+            'ben_xe_mien_tay' : { name: 'Bến xe Miền Tây', lat: 10.739466645214684, lng: 106.61947116475466},
+            //Tuyến 19
+            'buu_dien_thanh_pho' : { name: 'Bưu Điện Thành Phố', lat: 10.780598241882636, lng: 106.70076419966762},
+            'bao_tang_lich_su' : { name: 'Bảo tàng Lịch sử', lat: 10.786997433990221, lng: 106.70428781381648},
+            //Tuyến 31 
+            'dai_hoc_ton_duc_thang' : { name: 'Đại học Tôn Đức Thắng', lat: 10.7331801138535, lng: 106.69939580807349},
+            'cang_sai_gon' : { name: 'Cảng Sài Gòn', lat: 10.758004236811482, lng: 106.71598203850867},
+            'pasteur' : { name : 'Pasteur', lat: 10.781017882382995, lng: 106.69646316645868},
+            'nha_van_hoa_lao_dong' : { name: 'Nhà văn hóa lao động', lat: 10.777046785479264, lng: 106.69274607121719},
+            'cong_vien_dang_thuy_tram' : { name: 'Công viên Đặng Thùy Trâm', lat: 10.833659529240842, lng: 106.70033307789457},
+            //Tuyến 34
+            'bao_tang_my_thuat' : { name: 'Bảo tàng Mỹ thuật', lat: 10.769328590404145, lng: 106.69965626918939},
+            //Thêm tuyến 36
+            'nha_tho_duc_ba': { name: 'Nhà Thờ Đức Bà', lat: 10.77924769806382, lng: 106.69912050775272 },
+            'ben_xe_buyt_thoi_an' : { name: 'Bến xe buýt Thới An', lat: 10.878617098280651, lng: 106.64795850810873},
+            //Tuyến 38 
+            'dau_ben_tan_quy' : { name: 'Đầu bến Tân Quy', lat: 10.735819985659699, lng: 106.70634148849969},
+            'dai_hoc_bach_khoa_cong_sau' : { name : 'ĐH Bách Khoa (cổng sau)', lat: 10.773386516906275, lng: 106.66108146381151},
+            'ben_xe_buyt_dam_sen' : { name: 'Bến xe buýt Đầm Sen', lat: 10.76761235899108, lng: 106.64011052692392},
+            //Tuyến 39
+            //Tuyến 44 
+            'ben_xe_buyt_kho_muoi' : { name: 'Bến xe buýt Kho Muối', lat: 10.753062909973885, lng: 106.70167366131497},
+            'thu_vien_khoa_hoc_tong_hop': { name: 'Thư Viện Khoa Học Tổng hợp', lat: 10.775564286166993, lng: 106.69886564940873},
+            'ben_do_binh_quoi' : { name: 'Bến đò Bình Quới', lat: 10.83174100126749, lng: 106.7426583946158},
+            //Tuyến 52
+            'tram_dung_dinh_doc_lap' : { name: 'Trạm dừng Dinh Độc Lập', lat: 10.779812553155924, lng: 106.69695203762899},
+            'thao_dien' : { name : 'Thảo Điền', lat: 10.801491516172202, lng: 106.73887574594326},
+            //Tuyến 53
+            'le_hong_phong' : { name: 'Lê Hồng Phong', lat: 10.76131375004196, lng: 106.67665175386149},
+            'ben_xe_buyt_dhqg' : { name: 'Bến xe buýt ĐH Quốc Gia', lat: 10.88445131879042, lng: 106.77846225816555},
+            //Tuyến 56
+            'benh_vien_cho_ray': { name: 'Bệnh viện Chợ Rẫy', lat: 10.754876052929033, lng: 106.65896102983133},
+            'dai_hoc_sai_gon' : { name: 'ĐH Sài Gòn', lat: 10.760646463449643, lng: 106.6822565939539},
+            'ben_xe_mien_dong_moi' : { name: 'Bến xe Miền Đông mới', lat: 10.879437659754783, lng: 106.81697495450415},
+            //Tuyến 64
+            'hoc_vien_can_bo' : { name : 'Học viện Cán bộ', lat: 10.811094634496998, lng: 106.70226312669219},
+            //Tuyến 65
+            'trong_dong' : { name: 'Trống Đồng', lat: 10.773127647387861, lng: 106.6908095840909},
+            'ben_xe_an_suong' : { name: 'Bến xe An Sương', lat: 10.843787806092514, lng: 106.61337568251197},
+            //Tuyến 69 
+            'dam_sen': { name: 'Công Viên Đầm Sen', lat: 10.769575478108578, lng: 106.63667132414017 },
+            'truong_tri_tue_viet' : { name: 'Trường Trí Tuệ Việt', lat: 10.80370848591635, lng: 106.59112065566977},
+            //Thêm tuyến 94
+            //Thêm tuyến 155
+            'ga_ben_thanh': { name: 'Ga Bến Thành', lat: 10.770119046684593, lng: 106.69656144975636},
+            'cho_ben_thanh' : { name: 'Chợ Bến Thành', lat: 10.772904277277982, lng: 106.69925164212415},
+
+            //Chưa hoàn thành
+            //Tuyến 75 
+            'ben_xe_buyt_can_gio' : { name: 'Bến xe buýt Cần Giờ', lat: 10.410388283658031, lng: 106.96380745454134},
+            //Tuyến 93
+            //Tuyến 102
+            //Tuyến 140 
+            'dai_hoc_van_hien' : { name: 'Trường ĐH Văn Hiến (huyện Bình Chánh)', lat: 10.709807731922382, lng: 106.64402504928685},
+            //Tuyến 152 
+            'khu_dan_cu_trung_son' : { name: 'Khu dân cư Trung Sơn', lat: 10.733992175640653, lng: 106.68905905601058},
+            'san_bay_tan_son_nhat' : { name: 'Sân bay Tân Sơn Nhất', lat: 10.815797202306673, lng: 106.66421777721922},
+        };
+
+        // Định nghĩa các cạnh (kết nối giữa các trạm) với khoảng cách (km)
+        const edges = [
+            //Tuyến 01
+            { from: 'cong_truong_me_linh', to: 'ben_bach_dang', distance: 0.471},
+            { from: 'ben_bach_dang', to: 'nha_van_hoa_quan_5', distance: 5.4},
+            { from: 'nha_van_hoa_quan_5', to: 'ben_xe_buyt_cho_lon', distance: 2.1},
+            //Tuyến 03
+            { from: 'ben_xe_buyt_sai_gon', to: 'nam_ky_khoi_nghia', distance: 1.6},
+            { from: 'nam_ky_khoi_nghia', to: 'ben_bach_dang', distance: 0.7},
+            { from: 'ben_bach_dang', to: 'cong_truong_me_linh', distance: 0.471},
+            { from: 'cong_truong_me_linh', to: 'nha_hat_thanh_pho', distance: 0.322},
+            { from: 'nha_hat_thanh_pho', to: 'thanh_xuan', distance: 18.7},
+            //Tuyến 04
+            { from: 'ben_xe_buyt_sai_gon', to: 'nam_ky_khoi_nghia', distance: 1.6},
+            { from: 'nam_ky_khoi_nghia', to: 'dien_bien_phu', distance: 2.0},
+            { from: 'dien_bien_phu', to: 'nha_thieu_nhi_thanh_pho', distance: 0.48},
+            { from: 'nha_thieu_nhi_thanh_pho', to: 'ben_xe_an_suong', distance: 13.0},
+            //Tuyến 06 
+            { from: 'ben_xe_buyt_cho_lon', to: 'ben_xe_cho_lon', distance: 0.65},
+            { from: 'ben_xe_cho_lon', to: 'cho_an_dong', distance: 2.2},
+            { from: 'cho_an_dong', to: 'cho_bau_sen', distance: 0.72},
+            { from: 'cho_bau_sen', to: 'dai_hoc_su_pham', distance: 0.466},
+            { from: 'dai_hoc_su_pham', to: 'dai_hoc_khoa_hoc_tu_nhien', distance: 0.274},
+            { from: 'dai_hoc_khoa_hoc_tu_nhien', to: 'thao_cam_vien', distance: 4.6},
+            { from: 'thao_cam_vien', to: 'dai_hoc_nong_lam', distance: 17.9},
+            //Thêm tuyến 07
+            { from: 'ben_xe_buyt_cho_lon', to: 'nha_hat_hoa_binh', distance: 4.5},
+            { from: 'nha_hat_hoa_binh', to: 'ga_sai_gon', distance: 1.7},
+            { from: 'ga_sai_gon', to: 'bai_hau_can_so_1', distance: 9.4},
+            //Tuyến 08 
+            { from: 'ben_xe_buyt_quan_8', to: 'dai_hoc_bach_khoa', distance: 5.9},
+            { from: 'dai_hoc_bach_khoa', to: 'cong_vien_hoang_van_thu', distance: 4.0},
+            { from: 'cong_vien_hoang_van_thu', to: 'suoi_tien', distance: 20.4},
+            { from: 'suoi_tien', to: 'nha_van_hoa_sinh_vien', distance: 2.8},
+            { from: 'nha_van_hoa_sinh_vien', to: 'dai_hoc_khoa_hoc_xa_hoi_va_nhan_van', distance: 0.291},
+            { from: 'dai_hoc_khoa_hoc_xa_hoi_va_nhan_van', to: 'ben_xe_buyt_dhqg_moi', distance: 0.853},
+            //Tuyến 13
+            { from: 'ben_xe_buyt_sai_gon', to: 'trong_dong', distance: 2.2},
+            { from: 'trong_dong', to: 'cong_truong_dan_chu', distance: 1.4},
+            { from: 'cong_truong_dan_chu', to: 'cong_vien_le_thi_rieng', distance: 1.8},
+            { from: 'cong_vien_le_thi_rieng', to: 'ben_xe_an_suong', distance: 10.6},
+            { from: 'ben_xe_an_suong', to: 'ben_xe_cu_chi', distance: 21.4},
+            //Tuyến 14
+            { from: 'ben_xe_mien_dong', to: 'thao_cam_vien', distance: 4.3},
+            { from: 'thao_cam_vien', to: 'dai_truyen_hinh', distance: 0.543},
+            { from: 'dai_truyen_hinh', to: 'ho_con_rua', distance: 0.914},
+            { from: 'ho_con_rua', to: 'bao_tang_chung_tich_chien_tranh', distance: 0.693},
+            { from: 'bao_tang_chung_tich_chien_tranh', to: 'ben_xe_mien_tay', distance: 11.2},
+            //Tuyến 19
+            { from: 'ben_xe_buyt_sai_gon', to: 'nam_ky_khoi_nghia', distance: 1.6},
+            { from: 'nam_ky_khoi_nghia', to: 'ben_bach_dang', distance: 1.1},
+            { from: 'ben_bach_dang', to: 'cong_truong_me_linh', distance: 0.312},
+            { from: 'cong_truong_me_linh', to: 'nha_hat_thanh_pho', distance: 0.348},
+            { from: 'nha_hat_thanh_pho', to: 'buu_dien_thanh_pho', distance: 0.441},
+            { from: 'buu_dien_thanh_pho', to: 'bao_tang_lich_su', distance: 0.86},
+            { from: 'bao_tang_lich_su', to: 'thao_cam_vien', distance: 0.64},
+            { from: 'thao_cam_vien', to: 'suoi_tien', distance: 19.5},
+            { from: 'suoi_tien', to: 'nha_van_hoa_sinh_vien', distance: 2.8},
+            { from: 'nha_van_hoa_sinh_vien', to: 'ben_xe_buyt_dhqg_moi', distance: 1.1},
+            //Tuyến 31
+            { from: 'dai_hoc_ton_duc_thang', to: 'cang_sai_gon', distance: 6.4},
+            { from: 'cang_sai_gon', to: 'nam_ky_khoi_nghia', distance: 4.0},
+            { from: 'nam_ky_khoi_nghia', to: 'pasteur', distance: 1.6},
+            { from: 'pasteur', to: 'nha_van_hoa_lao_dong', distance: 5.7},
+            { from: 'nha_van_hoa_lao_dong', to: 'cong_vien_dang_thuy_tram', distance: 4.9},
+            //Tuyến 34
+            { from: 'ben_xe_buyt_sai_gon', to: 'bao_tang_my_thuat', distance: 1.8},
+            { from: 'bao_tang_my_thuat', to: 'cang_sai_gon', distance: 2.7},
+            { from: 'cang_sai_gon', to: 'ben_xe_buyt_quan_8', distance: 15.2},
+            //Thêm tuyến 36
+            { from: 'ben_xe_buyt_sai_gon', to: 'nam_ky_khoi_nghia', distance: 2.4},
+            { from: 'nam_ky_khoi_nghia', to: 'pasteur', distance: 0.171},
+            { from: 'pasteur', to: 'nha_tho_duc_ba', distance: 0.174},
+            { from: 'nha_tho_duc_ba', to: 'nha_van_hoa_thanh_nien', distance: 0.411},
+            { from: 'nha_van_hoa_thanh_nien', to: 'bai_hau_can_so_1', distance: 6.0},
+            { from: 'bai_hau_can_so_1', to: 'ben_xe_buyt_thoi_an', distance: 9.9},
+            //Tuyến 38
+            { from: 'dau_ben_tan_quy', to: 'trong_dong', distance: 6.7},
+            { from: 'trong_dong', to: 'dai_hoc_khoa_hoc_tu_nhien', distance: 1.8},
+            { from: 'dai_hoc_khoa_hoc_tu_nhien', to: 'dai_hoc_su_pham', distance: 0.336},
+            { from: 'dai_hoc_su_pham', to: 'cho_bau_sen', distance: 0.478},
+            { from: 'cho_bau_sen', to: 'dai_hoc_bach_khoa_cong_sau', distance: 3.8},
+            { from: 'dai_hoc_bach_khoa_cong_sau', to: 'ben_xe_buyt_dam_sen', distance: 3.6},
+            //Tuyến 39
+            { from: 'ben_xe_buyt_sai_gon', to: 'bao_tang_my_thuat', distance: 1.9},
+            { from: 'bao_tang_my_thuat', to: 'ben_xe_mien_tay', distance: 16.3},
+            //Tuyến 44 
+            { from: 'ben_xe_buyt_kho_muoi', to: 'thu_vien_khoa_hoc_tong_hop', distance: 5.4},
+            { from: 'thu_vien_khoa_hoc_tong_hop', to: 'ben_do_binh_quoi', distance: 10.6},
+            //Tuyến 52
+            { from: 'ben_xe_buyt_sai_gon', to: 'tram_dung_dinh_doc_lap', distance: 2.6},
+            { from: 'tram_dung_dinh_doc_lap', to: 'nha_van_hoa_thanh_nien', distance: 0.491},
+            { from: 'nha_van_hoa_thanh_nien', to: 'ho_con_rua', distance: 0.432},
+            { from: 'ho_con_rua', to: 'dai_truyen_hinh', distance: 0.909},
+            { from: 'dai_truyen_hinh', to: 'thao_cam_vien', distance: 0.543},
+            { from: 'thao_cam_vien', to: 'thao_dien', distance: 4.8},
+            { from: 'thao_dien', to: 'dai_hoc_khoa_hoc_xa_hoi_va_nhan_van', distance: 13.5},
+            { from: 'dai_hoc_khoa_hoc_xa_hoi_va_nhan_van', to: 'nha_van_hoa_sinh_vien', distance: 0.291},
+            { from: 'nha_van_hoa_sinh_vien', to: 'ben_xe_buyt_dhqg_moi', distance: 1.3},
+            //Tuyến 53
+            { from: 'le_hong_phong', to: 'nam_ky_khoi_nghia', distance: 3.7},
+            { from: 'nam_ky_khoi_nghia', to: 'ben_bach_dang', distance: 1.1},
+            { from: 'ben_bach_dang', to: 'thao_dien', distance: 5.9},
+            { from: 'thao_dien', to: 'suoi_tien', distance: 16.3},
+            { from: 'suoi_tien', to: 'nha_van_hoa_sinh_vien', distance: 2.7},
+            { from: 'nha_van_hoa_sinh_vien', to: 'ben_xe_buyt_dhqg', distance: 4.3},
+            //Tuyến 56
+            { from: 'ben_xe_buyt_cho_lon', to: 'benh_vien_cho_ray', distance: 1.8},
+            { from: 'benh_vien_cho_ray', to: 'cho_an_dong', distance: 1.5},
+            { from: 'cho_an_dong', to: 'cho_bau_sen', distance: 0.756},
+            { from: 'cho_bau_sen', to: 'dai_hoc_sai_gon', distance: 0.466},
+            { from: 'dai_hoc_sai_gon', to: 'nam_ky_khoi_nghia', distance: 2.9},
+            { from: 'nam_ky_khoi_nghia', to: 'ben_bach_dang', distance: 1.1},
+            { from: 'ben_bach_dang', to: 'thao_dien', distance: 5.9},
+            { from: 'thao_dien', to: 'ben_xe_mien_dong_moi', distance: 18.6},
+            //Tuyến 64
+            { from: 'ben_xe_mien_dong', to: 'hoc_vien_can_bo', distance: 4.2},
+            { from: 'hoc_vien_can_bo', to: 'nha_van_hoa_lao_dong', distance: 1.3},
+            { from: 'nha_van_hoa_lao_dong', to: 'cong_vien_hoang_van_thu', distance: 5.5},
+            { from: 'cong_vien_hoang_van_thu', to: 'ben_xe_buyt_dam_sen', distance: 8.7},
+            //Tuyến 65
+            { from: 'ben_xe_buyt_sai_gon', to: 'trong_dong', distance: 3.3},
+            { from: 'trong_dong', to: 'cong_truong_dan_chu', distance: 1.1},
+            { from: 'cong_truong_dan_chu', to: 'cong_vien_le_thi_rieng', distance: 2.0},
+            { from: 'cong_vien_le_thi_rieng', to: 'ben_xe_an_suong', distance: 11.2},
+            //Tuyến 69
+            { from: 'ben_xe_buyt_sai_gon', to: 'trong_dong', distance: 1.9},
+            { from: 'trong_dong', to: 'dai_hoc_bach_khoa_cong_sau', distance: 4.8},
+            { from: 'dai_hoc_bach_khoa_cong_sau', to: 'ben_xe_buyt_dam_sen', distance: 2.8},
+            { from: 'ben_xe_buyt_dam_sen', to: 'dam_sen', distance: 0.526},
+            { from: 'dam_sen', to: 'truong_tri_tue_viet', distance: 14.5},
+            //Tuyến 75
+            { from: 'ben_xe_buyt_sai_gon', to: 'ben_xe_buyt_can_gio', distance: 63.1},
+            //Tuyến 93
+            { from: 'ben_xe_buyt_sai_gon', to: 'ben_xe_mien_dong_moi', distance: 26.4},
+            //Thêm tuyến 94
+            { from: 'ben_xe_buyt_cho_lon', to: 'ben_xe_cho_lon', distance: 0.655},
+            { from: 'ben_xe_cho_lon', to: 'benh_vien_cho_ray', distance: 1.3},
+            { from: 'benh_vien_cho_ray', to: 'dai_hoc_bach_khoa', distance: 1.9},
+            { from: 'dai_hoc_bach_khoa', to: 'ben_xe_an_suong', distance: 11.4},
+            { from: 'ben_xe_an_suong', to: 'ben_xe_cu_chi', distance: 21.4},
+            //Tuyến 102
+            { from: 'ben_xe_buyt_sai_gon', to: 'ben_xe_mien_tay', distance: 32.9},
+            //Tuyến 140
+            { from: 'ben_xe_buyt_sai_gon', to: 'dai_hoc_van_hien', distance: 20.2},
+            //Tuyến 152
+            { from: 'khu_dan_cu_trung_son', to: 'san_bay_tan_son_nhat', distance: 14.3},
+            //Thêm tuyến 155
+            { from: 'ga_ben_thanh', to: 'nha_hat_thanh_pho', distance: 2.8},
+            { from: 'nha_hat_thanh_pho', to: 'tram_dung_dinh_doc_lap', distance: 2.6},
+            { from: 'tram_dung_dinh_doc_lap', to: 'cho_ben_thanh', distance: 0.871},
+            { from: 'cho_ben_thanh', to: 'ga_ben_thanh', distance: 0.427},
+        ];
+
+        // Định nghĩa tuyến xe buýt cố định
+        const busRoutes = {
+            'route_01': {
+                name: 'Tuyến 01',
+                color: '#f44336',
+                stations: ['cong_truong_me_linh','ben_bach_dang','nha_van_hoa_quan_5','ben_xe_buyt_cho_lon']
+            },
+            'route_03': {
+                name: 'Tuyến 03',
+                color: '#4caf50',
+                stations: ['ben_xe_buyt_sai_gon','nam_ky_khoi_nghia','ben_bach_dang','cong_truong_me_linh','nha_hat_thanh_pho','thanh_xuan']
+            },
+            'route_04': {
+                name: 'Tuyến 04',
+                color: '#ff9800',
+                stations: ['ben_xe_buyt_sai_gon','nam_ky_khoi_nghia','dien_bien_phu','nha_thieu_nhi_thanh_pho','ben_xe_an_suong']
+            },
+            'route_06': {
+                name: 'Tuyến 06',
+                color: '#9c27b0',
+                stations: ['ben_xe_buyt_cho_lon','ben_xe_cho_lon','cho_an_dong','cho_bau_sen','dai_hoc_su_pham','dai_hoc_khoa_hoc_tu_nhien','thao_cam_vien','dai_hoc_nong_lam']
+            },
+            'route_07': {
+                name: 'Tuyến 07',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_cho_lon','nha_hat_hoa_binh','ga_sai_gon','bai_hau_can_so_1']
+            },
+            'route_08': {
+                name: 'Tuyến 08',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_quan_8','dai_hoc_bach_khoa','cong_vien_hoang_van_thu','suoi_tien','nha_van_hoa_sinh_vien','dai_hoc_khoa_hoc_xa_hoi_va_nhan_van','ben_xe_buyt_dhqg_moi']
+            },
+            'route_13': {
+                name: 'Tuyến 13',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon','trong_dong','cong_truong_dan_chu','cong_vien_le_thi_rieng','ben_xe_an_suong','ben_xe_cu_chi']
+            },
+            'route_14': {
+                name: 'Tuyến 14',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_mien_dong','thao_cam_vien','dai_truyen_hinh','ho_con_rua','bao_tang_chung_tich_chien_tranh','ben_xe_mien_tay']
+            },
+            'route_19': {
+                name: 'Tuyến 19',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon','nam_ky_khoi_nghia','ben_bach_dang','cong_truong_me_linh','nha_hat_thanh_pho','bao_tang_lich_su','thao_cam_vien','suoi_tien','nha_van_hoa_sinh_vien','ben_xe_buyt_dhqg_moi']
+            },
+            'route_31': {
+                name: 'Tuyến 31',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['dai_hoc_ton_duc_thang','cang_sai_gon','nam_ky_khoi_nghia','pasteur','nha_van_hoa_lao_dong','cong_vien_dang_thuy_tram']
+            },
+            'route_34': {
+                name: 'Tuyến 34',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon','bao_tang_my_thuat','cang_sai_gon','ben_xe_buyt_quan_8']
+            },
+            'route_36': {
+                name: 'Tuyến 36',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon','nam_ky_khoi_nghia','pasteur','nha_tho_duc_ba','nha_van_hoa_thanh_nien','bai_hau_can_so_1','ben_xe_buyt_thoi_an']
+            },
+            'route_38': {
+                name: 'Tuyến 38',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['dau_ben_tan_quy','trong_dong','dai_hoc_khoa_hoc_tu_nhien','dai_hoc_su_pham','cho_bau_sen','dai_hoc_bach_khoa_cong_sau','ben_xe_buyt_dam_sen']
+            },
+            'route_39': {
+                name: 'Tuyến 39',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon','bao_tang_my_thuat','ben_xe_mien_tay']
+            },
+            'route_44': {
+                name: 'Tuyến 44',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_kho_muoi','thu_vien_khoa_hoc_tong_hop','ben_do_binh_quoi']
+            },
+            'route_52': {
+                name: 'Tuyến 52',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon','tram_dung_dinh_doc_lap','nha_van_hoa_thanh_nien','ho_con_rua','dai_truyen_hinh','thao_cam_vien','thao_dien','dai_hoc_khoa_hoc_xa_hoi_va_nhan_van','nha_van_hoa_sinh_vien','ben_xe_buyt_dhqg_moi']
+            },
+            'route_53': {
+                name: 'Tuyến 53',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['le_hong_phong','nam_ky_khoi_nghia','ben_bach_dang','thao_dien','suoi_tien','nha_van_hoa_sinh_vien','ben_xe_buyt_dhqg']
+            },
+            'route_56': {
+                name: 'Tuyến 56',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_cho_lon','benh_vien_cho_ray','cho_an_dong','cho_bau_sen','dai_hoc_sai_gon','nam_ky_khoi_nghia','ben_bach_dang','thao_dien','ben_xe_mien_dong_moi']
+            },
+            'route_64': {
+                name: 'Tuyến 64',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_mien_dong','hoc_vien_can_bo','nha_van_hoa_lao_dong','cong_vien_hoang_van_thu','ben_xe_buyt_dam_sen']
+            },
+            'route_65': {
+                name: 'Tuyến 65',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon', 'trong_dong','cong_truong_dan_chu','cong_vien_le_thi_rieng','ben_xe_an_suong']
+            },
+            'route_69': {
+                name: 'Tuyến 69',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon','trong_dong','dai_hoc_bach_khoa_cong_sau','ben_xe_buyt_dam_sen','dam_sen','truong_tri_tue_viet']
+            },
+            'route_75': {
+                name: 'Tuyến 69',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon', 'ben_xe_buyt_can_gio']
+            },
+            'route_93': {
+                name: 'Tuyến 93',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon', 'ben_xe_mien_dong_moi']
+            },
+            'route_94': {
+                name: 'Tuyến 94',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_cho_lon','ben_xe_cho_lon','benh_vien_cho_ray','dai_hoc_bach_khoa','ben_xe_an_suong','ben_xe_cu_chi']
+            },
+            'route_102': {
+                name: 'Tuyến 102',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon', 'ben_xe_mien_tay']
+            },
+            'route_140': {
+                name: 'Tuyến 102',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ben_xe_buyt_sai_gon', 'dai_hoc_van_hien']
+            },
+            'route_152': {
+                name: 'Tuyến 152',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['khu_dan_cu_trung_son', 'san_bay_tan_son_nhat']
+            },
+            'route_155': {
+                name: 'Tuyến 155',
+                color: '#9c27b0', //chỉnh màu sau
+                stations: ['ga_ben_thanh','nha_hat_thanh_pho','tram_dung_dinh_doc_lap','cho_ben_thanh','ga_ben_thanh']
+            },
+        };
+
+        // ==================== THUẬT TOÁN DIJKSTRA ====================
+        
+        /**
+         * Thuật toán Dijkstra tìm đường đi ngắn nhất
+         * 
+         * Nguyên lý hoạt động:
+         * 1. Khởi tạo khoảng cách từ điểm xuất phát đến tất cả các điểm khác là vô cùng
+         * 2. Đặt khoảng cách đến điểm xuất phát = 0
+         * 3. Lặp lại cho đến khi tìm được đích hoặc hết điểm:
+         *    - Chọn điểm chưa thăm có khoảng cách nhỏ nhất
+         *    - Đánh dấu điểm đó là đã thăm
+         *    - Cập nhật khoảng cách đến các điểm láng giềng
+         * 4. Truy vết ngược lại để tìm đường đi
+         * 
+         * Độ phức tạp: O((V + E) log V) với V là số đỉnh, E là số cạnh
+         */
+        function dijkstra(start, end) {
+            const distances = {};
+            const previous = {};
+            const unvisited = new Set();
+
+            // Khởi tạo khoảng cách ban đầu
+            for (let station in stations) {
+                distances[station] = Infinity;
+                previous[station] = null;
+                unvisited.add(station);
+            }
+            distances[start] = 0;
+
+            while (unvisited.size > 0) {
+                // Tìm điểm chưa thăm có khoảng cách nhỏ nhất
+                let current = null;
+                let minDist = Infinity;
+                for (let station of unvisited) {
+                    if (distances[station] < minDist) {
+                        minDist = distances[station];
+                        current = station;
+                    }
+                }
+
+                if (current === null || current === end) break;
+                unvisited.delete(current);
+
+                // Cập nhật khoảng cách đến các điểm láng giềng
+                const neighbors = edges.filter(e => 
+                    e.from === current || e.to === current
+                );
+
+                for (let edge of neighbors) {
+                    const neighbor = edge.from === current ? edge.to : edge.from;
+                    if (!unvisited.has(neighbor)) continue;
+
+                    const newDist = distances[current] + edge.distance;
+                    if (newDist < distances[neighbor]) {
+                        distances[neighbor] = newDist;
+                        previous[neighbor] = current;
+                    }
+                }
+            }
+
+            // Truy vết đường đi
+            const path = [];
+            let current = end;
+            while (current !== null) {
+                path.unshift(current);
+                current = previous[current];
+            }
+
+            return {
+                distance: distances[end],
+                path: path[0] === start ? path : []
+            };
+        }
+
+        // ==================== KHỞI TẠO BẢN ĐỒ ====================
+        
+        const map = L.map('map').setView([10.7769, 106.7009], 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        const stationMarkers = {};
+        const routePolylines = [];
+
+        // Vẽ các trạm lên bản đồ
+        for (let id in stations) {
+            const station = stations[id];
+            const marker = L.circleMarker([station.lat, station.lng], {
+                radius: 8,
+                fillColor: '#42a5f5',
+                color: 'white',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+            
+            marker.bindPopup(`<b>${station.name}</b>`);
+            stationMarkers[id] = marker;
+        }
+
+        // Khởi tạo dropdown
+        const startSelect = document.getElementById('startStation');
+        const endSelect = document.getElementById('endStation');
+
+        for (let id in stations) {
+            const option1 = document.createElement('option');
+            option1.value = id;
+            option1.textContent = stations[id].name;
+            startSelect.appendChild(option1);
+
+            const option2 = document.createElement('option');
+            option2.value = id;
+            option2.textContent = stations[id].name;
+            endSelect.appendChild(option2);
+        }
+
+        // ==================== TÌM KIẾM TUYẾN ĐƯỜNG ====================
+        
+        function findRoutes() {
+            const start = startSelect.value;
+            const end = endSelect.value;
+
+            if (!start || !end) {
+                alert('Vui lòng chọn điểm đi và điểm đến!');
+                return;
+            }
+
+            if (start === end) {
+                alert('Điểm đi và điểm đến không được trùng nhau!');
+                return;
+            }
+
+            // Xóa các đường đi cũ
+            routePolylines.forEach(p => map.removeLayer(p));
+            routePolylines.length = 0;
+
+            // Tìm đường đi ngắn nhất bằng Dijkstra
+            const result = dijkstra(start, end);
+            
+            if (result.path.length === 0) {
+                document.getElementById('results').innerHTML = `
+                    <div class="no-results">
+                        <p>Không tìm thấy tuyến đường từ ${stations[start].name} đến ${stations[end].name}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Tìm các tuyến xe buýt có thể đi
+            const possibleRoutes = findBusRoutes(result.path);
+            
+            displayResults(possibleRoutes, result.path, result.distance);
+        }
+
+        function findBusRoutes(path) {
+            const routes = [];
+
+            for (let routeId in busRoutes) {
+                const route = busRoutes[routeId];
+                const routeStations = route.stations;
+                
+                // Kiểm tra xem đường đi có nằm trong tuyến xe buýt không
+                let isValid = true;
+                for (let i = 0; i < path.length - 1; i++) {
+                    const idx1 = routeStations.indexOf(path[i]);
+                    const idx2 = routeStations.indexOf(path[i + 1]);
+                    
+                    if (idx1 === -1 || idx2 === -1 || Math.abs(idx1 - idx2) !== 1) {
+                        isValid = false;
+                        break;
+                    }
+                }
+
+                if (isValid) {
+                    routes.push({
+                        id: routeId,
+                        name: route.name,
+                        color: route.color,
+                        path: path
+                    });
+                }
+            }
+
+            return routes;
+        }
+
+        function displayResults(routes, path, distance) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (routes.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div class="no-results">
+                        <p>Không có tuyến xe buýt trực tiếp. Vui lòng chọn điểm khác!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            routes.forEach((route, index) => {
+                const pathText = path.map(id => stations[id].name).join(' → ');
+                const isBest = index === 0;
+                
+                html += `
+                    <div class="result-item ${isBest ? 'best' : ''}" onclick="showRouteOnMap('${route.id}', ${index})">
+                        <div class="route-header">
+                            <span class="route-badge">${route.name}</span>
+                            <span class="route-distance">${distance.toFixed(1)} km</span>
+                        </div>
+                        <div class="route-path">
+                            ${pathText}
+                        </div>
+                        ${isBest ? '<div style="margin-top:8px;color:#2e7d32;font-weight:600;font-size:12px;">⭐ Tuyến ngắn nhất</div>' : ''}
+                    </div>
+                `;
+            });
+
+            resultsDiv.innerHTML = html;
+
+            // Tự động hiển thị tuyến đầu tiên
+            showRouteOnMap(routes[0].id, 0);
+        }
+
+        
+        let currentActiveIndex = -1;
+
+        async function showRouteOnMap(routeId, index) {
+            // Xóa các đường đi cũ
+            routePolylines.forEach(p => map.removeLayer(p));
+            routePolylines.length = 0;
+
+            // Cập nhật trạng thái active
+            document.querySelectorAll('.result-item').forEach((item, i) => {
+                if (i === index) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            const route = busRoutes[routeId];
+            const path = route.stations;
+            
+            // Màu xanh lá cho tuyến tốt nhất, xám cho các tuyến khác
+            const color = index === 0 ? '#66bb6a' : '#bdbdbd';
+            const weight = index === 0 ? 5 : 4;
+            const opacity = index === 0 ? 0.8 : 0.5;
+
+            try {
+                // Tạo chuỗi tọa độ cho OSRM API
+                const coordinates = path.map(id => 
+                    `${stations[id].lng},${stations[id].lat}`
+                ).join(';');
+
+                // Gọi OSRM API để lấy đường đi theo trục đường thực tế
+                const response = await fetch(
+                    `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
+                );
+                
+                if (!response.ok) {
+                    throw new Error('Không thể lấy dữ liệu đường đi');
+                }
+
+                const data = await response.json();
+                
+                if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                    // Lấy tọa độ đường đi từ OSRM (đã theo trục đường thực tế)
+                    const routeCoordinates = data.routes[0].geometry.coordinates.map(
+                        coord => [coord[1], coord[0]] // Đổi từ [lng, lat] sang [lat, lng]
+                    );
+
+                    const polyline = L.polyline(routeCoordinates, {
+                        color: color,
+                        weight: weight,
+                        opacity: opacity
+                    }).addTo(map);
+
+                    routePolylines.push(polyline);
+
+                    // Thu phóng bản đồ để hiển thị toàn bộ tuyến
+                    map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+                } else {
+                    // Fallback: nếu OSRM thất bại, vẽ đường thẳng
+                    console.warn('OSRM không trả về kết quả, sử dụng đường thẳng');
+                    drawStraightLine(path, color, weight, opacity);
+                }
+            } catch (error) {
+                console.error('Lỗi khi gọi OSRM API:', error);
+                // Fallback: vẽ đường thẳng nếu có lỗi
+                drawStraightLine(path, color, weight, opacity);
+            }
+
+            currentActiveIndex = index;
+        }
+
+        // Hàm vẽ đường thẳng (fallback khi OSRM không hoạt động)
+        function drawStraightLine(path, color, weight, opacity) {
+            const coordinates = path.map(id => [stations[id].lat, stations[id].lng]);
+            const polyline = L.polyline(coordinates, {
+                color: color,
+                weight: weight,
+                opacity: opacity
+            }).addTo(map);
+            routePolylines.push(polyline);
+            map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+    
+        }
+    </script>
+</body>
+</html>
